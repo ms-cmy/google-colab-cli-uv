@@ -12,14 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
 from unittest.mock import MagicMock
 
 import pytest
 import typer
 
 from colab_cli.client import ListedAssignment
-from colab_cli.common import State
+from colab_cli.common import (
+    LOG_BACKUP_COUNT,
+    MAX_LOG_SIZE_BYTES,
+    State,
+    setup_logging,
+)
 from colab_cli.state import SessionState, StateStore
 
 
@@ -123,3 +130,63 @@ def test_sync_sessions_updates_tokens(real_state):
     assert sessions["s1"].token == "new-token"
     assert real_state.store.get("s1").token == "new-token"
     assert real_state.store.get("s1").token_expires_at is not None
+
+
+def test_setup_logging_configures_rotating_file_handler(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    root_logger = logging.getLogger()
+    old_handlers = list(root_logger.handlers)
+    root_logger.handlers.clear()
+
+    try:
+        setup_logging(log_to_stderr=False)
+
+        rotating_handlers = [
+            h for h in root_logger.handlers if isinstance(h, RotatingFileHandler)
+        ]
+        assert len(rotating_handlers) == 1
+        handler = rotating_handlers[0]
+        assert handler.maxBytes == MAX_LOG_SIZE_BYTES
+        assert handler.maxBytes == 20 * 1024 * 1024
+        assert handler.backupCount == LOG_BACKUP_COUNT
+        assert handler.backupCount == 1
+        assert handler.baseFilename == str(
+            tmp_path / ".config" / "colab-cli" / "colab.log"
+        )
+    finally:
+        for h in root_logger.handlers:
+            h.close()
+        root_logger.handlers = old_handlers
+
+
+def test_setup_logging_rotates_log_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    root_logger = logging.getLogger()
+    old_handlers = list(root_logger.handlers)
+    root_logger.handlers.clear()
+
+    try:
+        setup_logging(log_to_stderr=False)
+        handler = [
+            h for h in root_logger.handlers if isinstance(h, RotatingFileHandler)
+        ][0]
+        # Temporarily reduce maxBytes to verify rotation happens
+        handler.maxBytes = 200
+
+        log_file = tmp_path / ".config" / "colab-cli" / "colab.log"
+        backup_file = tmp_path / ".config" / "colab-cli" / "colab.log.1"
+
+        for i in range(20):
+            root_logger.debug(f"Message number {i:03d} to trigger rotation test")
+
+        assert log_file.exists()
+        assert backup_file.exists()
+        assert log_file.stat().st_size > 0
+        assert backup_file.stat().st_size > 0
+    finally:
+        for h in root_logger.handlers:
+            h.close()
+        root_logger.handlers = old_handlers
+

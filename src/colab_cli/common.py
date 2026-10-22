@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 import typer
@@ -27,6 +28,10 @@ from colab_cli.state import SessionState, StateStore, SettingsStore
 
 # Headroom so a token doesn't expire mid-command.
 TOKEN_REFRESH_MARGIN = timedelta(minutes=5)
+
+# Maximum log file size (20 MB) and backup count for colab.log rotation.
+MAX_LOG_SIZE_BYTES = 20 * 1024 * 1024
+LOG_BACKUP_COUNT = 1
 
 
 def _apply_proxy_info(s: SessionState, info: RuntimeProxyInfo):
@@ -194,7 +199,11 @@ def setup_logging(log_to_stderr: bool):
 
     log_dir = os.path.expanduser("~/.config/colab-cli")
     os.makedirs(log_dir, exist_ok=True)
-    file_handler = logging.FileHandler(os.path.join(log_dir, "colab.log"))
+    file_handler = RotatingFileHandler(
+        os.path.join(log_dir, "colab.log"),
+        maxBytes=MAX_LOG_SIZE_BYTES,
+        backupCount=LOG_BACKUP_COUNT,
+    )
     file_handler.setFormatter(logging.Formatter(log_format))
     logger.addHandler(file_handler)
 
