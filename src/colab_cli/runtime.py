@@ -261,6 +261,14 @@ class ColabRuntime:
 
         return outputs
 
+    def interrupt(self):
+        """Send an interrupt signal to the running kernel."""
+        if self._kernel_client:
+            try:
+                self._kernel_client._manager.interrupt_kernel()
+            except Exception:
+                logging.exception("Error interrupting kernel")
+
     def stop(self, shutdown_kernel: bool = False):
         if self._kernel_client:
             try:

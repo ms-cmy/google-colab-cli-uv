@@ -91,37 +91,44 @@ def resolve_runtime_options(
     return variant, accelerator, shape
 
 
+SessionOption = Annotated[
+    Optional[str],
+    typer.Option("-s", "--session", "--name", help="Session name"),
+]
+TpuOption = Annotated[
+    Optional[str],
+    typer.Option(
+        help="TPU accelerator variant. Supported: v5e1, v6e1.",
+    ),
+]
+GpuOption = Annotated[
+    Optional[str],
+    typer.Option(
+        help=(
+            "GPU accelerator variant. Supported: T4, L4, G4, H100, A100."
+            "\n\nIf omitted (along with --tpu), a CPU runtime is created."
+            "\n\nAvailability varies by Colab subscription tier."
+        ),
+    ),
+]
+HighMemOption = Annotated[
+    bool,
+    typer.Option(
+        "--high-mem",
+        help=(
+            "Request a high-RAM machine shape (CPU, T4, A100, etc.). "
+            "Requires Colab Pro or Pro+ entitlement. Ignored for "
+            "accelerators that only offer a single shape (L4, v5e1, v6e1)."
+        ),
+    ),
+]
+
+
 def new(
-    session: Annotated[
-        Optional[str], typer.Option("-s", "--session", help="Session name")
-    ] = None,
-    tpu: Annotated[
-        Optional[str],
-        typer.Option(
-            help="TPU accelerator variant. Supported: v5e1, v6e1.",
-        ),
-    ] = None,
-    gpu: Annotated[
-        Optional[str],
-        typer.Option(
-            help=(
-                "GPU accelerator variant. Supported: T4, L4, G4, H100, A100."
-                "\n\nIf omitted (along with --tpu), a CPU runtime is created."
-                "\n\nAvailability varies by Colab subscription tier."
-            ),
-        ),
-    ] = None,
-    high_mem: Annotated[
-        bool,
-        typer.Option(
-            "--high-mem",
-            help=(
-                "Request a high-RAM machine shape (CPU, T4, A100, etc.). "
-                "Requires Colab Pro or Pro+ entitlement. Ignored for "
-                "accelerators that only offer a single shape (L4, v5e1, v6e1)."
-            ),
-        ),
-    ] = False,
+    session: SessionOption = None,
+    tpu: TpuOption = None,
+    gpu: GpuOption = None,
+    high_mem: HighMemOption = False,
 ):
     """Create a new session"""
     from colab_cli.common import state

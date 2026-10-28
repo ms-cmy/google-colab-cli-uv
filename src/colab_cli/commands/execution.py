@@ -113,8 +113,16 @@ def save_output(outputs, cell):
 def display_output(out, output_image=None):
     if out.get("output_type") == "stream":
         stream = sys.stderr if out.get("name") == "stderr" else sys.stdout
-        stream.write(out.get("text", ""))
+        text = out.get("text", "")
+        if "\r" in text and not text.endswith("\n") and stream.isatty():
+            stream.write(text + "\x1b[K")
+        else:
+            stream.write(text)
         stream.flush()
+    elif out.get("output_type") == "clear_output":
+        if sys.stdout.isatty():
+            sys.stdout.write("\r\x1b[2K")
+            sys.stdout.flush()
     elif "data" in out:
         data = out["data"]
         text = render_display_data(data)
